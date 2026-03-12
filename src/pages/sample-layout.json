@@ -1,0 +1,102 @@
+{
+  "type": "canvas",
+  "version": "5.5.2",
+  "objects": [
+    {
+      "type": "circle",
+      "version": "5.5.2",
+      "left": 300,
+      "top": 200,
+      "width": 30,
+      "height": 30,
+      "fill": "#4ade80",
+      "stroke": "#16a34a",
+      "strokeWidth": 2,
+      "radius": 15,
+      "attributes": {
+        "number": "A1",
+        "category": "VIP",
+        "price": "100",
+        "status": "available"
+      }
+    },
+    {
+      "type": "circle",
+      "version": "5.5.2",
+      "left": 360,
+      "top": 200,
+      "width": 30,
+      "height": 30,
+      "fill": "#4ade80",
+      "stroke": "#16a34a",
+      "strokeWidth": 2,
+      "radius": 15,
+      "attributes": {
+        "number": "A2",
+        "category": "VIP",
+        "price": "100",
+        "status": "available"
+      }
+    },
+    {
+      "type": "circle",
+      "version": "5.5.2",
+      "left": 300,
+      "top": 260,
+      "width": 30,
+      "height": 30,
+      "fill": "#f87171",
+      "stroke": "#dc2626",
+      "strokeWidth": 2,
+      "radius": 15,
+      "attributes": {
+        "number": "B1",
+        "category": "Regular",
+        "price": "50",
+        "status": "booked"
+      }
+    },
+    {
+      "type": "circle",
+      "version": "5.5.2",
+      "left": 360,
+      "top": 260,
+      "width": 30,
+      "height": 30,
+      "fill": "#60a5fa",
+      "stroke": "#2563eb",
+      "strokeWidth": 2,
+      "radius": 15,
+      "attributes": {
+        "number": "B2",
+        "category": "Regular",
+        "price": "50",
+        "status": "available"
+      }
+    },
+    {
+      "type": "rect",
+      "version": "5.5.2",
+      "left": 230,
+      "top": 80,
+      "width": 200,
+      "height": 40,
+      "fill": "#cbd5e1",
+      "stroke": "#64748b",
+      "strokeWidth": 2,
+      "opacity": 0.8
+    },
+    {
+      "type": "i-text",
+      "version": "5.5.2",
+      "left": 310,
+      "top": 90,
+      "text": "STAGE",
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "fill": "#1e293b",
+      "textAlign": "center"
+    }
+  ],
+  "background": "#f8fafc"
+}
