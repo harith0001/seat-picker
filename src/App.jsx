@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import ReactSeatPickerExample from './pages/ReactSeatPickerExample';
-import SeatPickerExample from './pages/SeatPickerExample';
+// import ReactSeatPickerExample from './pages/ReactSeatPickerExample';
+// import SeatPickerExample from './pages/SeatPickerExample';
 import ReactSvgSeatmapExample from './pages/ReactSvgSeatmapExample';
 import './App.css';
 
