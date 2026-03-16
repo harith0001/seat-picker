@@ -42,7 +42,7 @@ function ReactSvgSeatmapExample() {
         const blob = new Blob([text], { type: 'image/svg+xml' });
         const url = URL.createObjectURL(blob);
         setSvgUrl(url);
-        
+        console.log("generated seats:", generatedSeats)
         setSeats(generatedSeats);
         setSelectedSeats([]);
         setBlockedSeats([]);
@@ -53,6 +53,7 @@ function ReactSvgSeatmapExample() {
   };
 
   const handleSeatChange = (newSelectedSeats) => {
+    console.log("newSelectedSeats: ", newSelectedSeats)
     // Filter out blocked seats
     const validSelection = newSelectedSeats.filter(id => !blockedSeats.includes(id));
     setSelectedSeats(validSelection);
