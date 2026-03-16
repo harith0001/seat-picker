@@ -45,7 +45,7 @@ function ReactSvgSeatmapExample() {
         console.log("generated seats:", generatedSeats)
         setSeats(generatedSeats);
         setSelectedSeats([]);
-        setBlockedSeats([]);
+        setBlockedSeats([4,17]);
       } catch (error) {
         console.error('Error reading file:', error);
       }
