@@ -1,100 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SeatmapInput } from 'react-svg-seatmap';
 import 'react-svg-seatmap/style.css';
 
-function ReactSvgSeatmapExample() {
+/**
+ * Converts an SVG string to be compatible with React Svg Seatmap
+ */
+function normalizeSeatSvg(svgString) {
+  const parser = new DOMParser();
+  const serializer = new XMLSerializer();
 
+  const doc = parser.parseFromString(svgString, "image/svg+xml");
+
+  // Look for any element that might be a seat (groups, rects, circles, paths)
+  const seatElements = doc.querySelectorAll('[data-seat-id]');
+
+  seatElements.forEach((el) => {
+    const seatId = el.getAttribute("data-seat-id");
+    if (!seatId) return;
+
+    // Ensure the element is interactive and identifiable
+    el.classList.add("seat-map__seat");
+    el.classList.add("seat");
+    el.dataset.seat = seatId;
+    el.id = seatId;
+    el.setAttribute("pointer-events", "all");
+    el.style.cursor = "pointer";
+
+    // Use regex to extract row and number for metadata (optional but helpful)
+    const match = /^([A-Za-z]+)(\d+)$/.exec(seatId);
+    if (match) {
+      el.dataset.row = match[1];
+      el.dataset.number = match[2];
+    }
+  });
+
+  return serializer.serializeToString(doc);
+}
+
+function ReactSvgSeatmapExample() {
   const [svgUrl, setSvgUrl] = useState('');
   const [seats, setSeats] = useState([]);
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const [blockedSeats, setBlockedSeats] = useState([]); // user managed blocked seats
-  const [seatSelector, setSeatSelector] = useState('circle[id], path[id], ellipse[id]');
+  const [blockedSeats, setBlockedSeats] = useState([]);
+  const containerRef = useRef(null);
+
+  const toggleSeatSelection = (numericId) => {
+    if (blockedSeats.includes(numericId)) return;
+
+    setSelectedSeats(prev => 
+      prev.includes(numericId) 
+        ? prev.filter(id => id !== numericId) 
+        : [...prev, numericId]
+    );
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      try {
-        const text = await file.text();
-        
-        // Parse the SVG to extract probable seats
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'image/svg+xml');
-        // Let's find all elements that have an ID and might be seats
-        const elements = doc.querySelectorAll(seatSelector);
-        
-        const generatedSeats = [];
-        let idCounter = 1;
-        elements.forEach((el) => {
-          const idStr = el.getAttribute('id');
-          if (idStr && idStr !== 'svg' && idStr !== 'layer1' && idStr !== 'layer2') {
-            generatedSeats.push({
-              id: idCounter, // numeric ID required by component?
-              originalId: idStr, // keeping original for reference
-              cssSelector: `#${idStr}`, // using CSS selector
-              displayGroup: 'General',
-            });
-            idCounter++;
-          }
+    if (!file) return;
+
+    try {
+      const rawText = await file.text();
+      const normalizedSvgText = normalizeSeatSvg(rawText);
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(normalizedSvgText, "image/svg+xml");
+      const elements = doc.querySelectorAll("[data-seat]");
+
+      const generatedSeats = [];
+      let idCounter = 1;
+
+      elements.forEach((el) => {
+        const seatId = el.dataset.seat;
+        if (!seatId) return;
+
+        generatedSeats.push({
+          id: idCounter,
+          originalId: seatId,
+          cssSelector: `[data-seat="${seatId}"]`, // Using attribute selector for better compatibility
+          displayGroup: "General",
         });
-        
-        // Create an Object URL for the SeatmapInput
-        // It might expect a URL instead of raw string.
-        const blob = new Blob([text], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        setSvgUrl(url);
-        console.log("generated seats:", generatedSeats)
-        setSeats(generatedSeats);
-        setSelectedSeats([]);
-        setBlockedSeats([4,17]);
-      } catch (error) {
-        console.error('Error reading file:', error);
-      }
+
+        idCounter++;
+      });
+
+      const blob = new Blob([normalizedSvgText], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+
+      setSvgUrl(url);
+      setSeats(generatedSeats);
+      setSelectedSeats([]);
+      setBlockedSeats([]);
+    } catch (error) {
+      console.error("Error reading file:", error);
     }
   };
 
   const handleSeatChange = (newSelectedSeats) => {
-    console.log("newSelectedSeats: ", newSelectedSeats)
-    // Filter out blocked seats
+    return;
     const validSelection = newSelectedSeats.filter(id => !blockedSeats.includes(id));
     setSelectedSeats(validSelection);
   };
 
   const toggleBlockedStatus = (seatId) => {
-    setBlockedSeats(prev => 
-      prev.includes(seatId) ? prev.filter(id => id !== seatId) : [...prev, seatId]
-    );
-    // Also remove from selected if blocked
-    if (!blockedSeats.includes(seatId) && selectedSeats.includes(seatId)) {
-      setSelectedSeats(prev => prev.filter(id => id !== seatId));
-    }
+    setBlockedSeats(prev => {
+      const isBlocked = prev.includes(seatId);
+      const nextBlocked = isBlocked ? prev.filter(id => id !== seatId) : [...prev, seatId];
+      if (!isBlocked && selectedSeats.includes(seatId)) {
+        setSelectedSeats(curr => curr.filter(id => id !== seatId));
+      }
+      return nextBlocked;
+    });
   };
 
-  // The SeatmapInput component uses CSS selectors.
-  // We want to pass the seats to the component.
-  // We can filter out visually what's blocked or just handle click logic.
-  // The react-svg-seatmap component doesn't seem to have a disabled state directly from the type
-  // so we will just ignore clicks on blocked seats. In CSS we can define it?
-  
-  return (
-    <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h1>React Svg Seatmap Upload Example</h1>
+  useEffect(() => {
+    const handleManualClick = (e) => {
+      // Attempt to find the seat element by looking up from the target
+      const seatEl = e.target.closest('[data-seat]');
       
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <input type="file" accept=".svg" onChange={handleFileUpload} />
-        <div>
-          <label htmlFor="css-selector" style={{ marginRight: '10px' }}>CSS Selector for auto-detecting seats:</label>
-          <input 
-            id="css-selector"
-            type="text" 
-            value={seatSelector} 
-            onChange={(e) => setSeatSelector(e.target.value)} 
-            style={{ width: '300px' }}
-          />
-        </div>
+      if (seatEl) {
+        const seatId = seatEl.getAttribute('data-seat');
+        const foundSeat = seats.find(s => s.originalId === seatId);
+        
+        if (foundSeat) {
+          console.log('Capture click on seat:', seatId);
+          toggleSeatSelection(foundSeat.id);
+        }
+      }
+    };
+
+    /**
+     * Prevents panning/dragging when the user is interacting with a seat.
+     * We stop the event in the capture phase so the library's pan handler never sees it.
+     */
+    const preventDragOnSeats = (e) => {
+      if (e.target.closest('[data-seat]')) {
+        // Stop propagation so the library's pan/drag logic is not triggered
+        e.stopPropagation();
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      // Use capture to ensure we see these events before the library.
+      container.addEventListener('click', handleManualClick, true);
+      container.addEventListener('mousedown', preventDragOnSeats, true);
+      container.addEventListener('touchstart', preventDragOnSeats, true);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener('click', handleManualClick, true);
+        container.removeEventListener('mousedown', preventDragOnSeats, true);
+        container.removeEventListener('touchstart', preventDragOnSeats, true);
+      }
+    };
+  }, [seats, blockedSeats, selectedSeats]);
+
+  return (
+    <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', color: '#333' }}>
+      <h1 style={{ textAlign: 'center' }}>SVG Seatmap Viewer</h1>
+      
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', background: '#f5f5f5', padding: '1rem', borderRadius: '8px' }}>
+        <strong>Upload Seat Map:</strong>
+        <input type="file" accept=".svg" onChange={handleFileUpload} style={{ padding: '5px' }} />
       </div>
 
       <div style={{ display: 'flex', gap: '2rem' }}>
-        <div style={{ flex: 1, minHeight: '500px', border: '1px solid #ccc', position: 'relative' }}>
+        <div ref={containerRef} style={{ flex: 1, minHeight: '600px', border: '2px solid #ddd', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff', position: 'relative' }}>
           {svgUrl ? (
             <SeatmapInput
               seats={seats}
@@ -102,23 +173,36 @@ function ReactSvgSeatmapExample() {
               onChange={handleSeatChange}
               svg={svgUrl}
               withGroupSelection={false}
-              withDragSelection={true}
+              withDragSelection={false}
             />
           ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-              Upload an SVG file to see the seatmap here.
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+              Upload an SVG file to start selecting seats.
             </div>
           )}
         </div>
 
-        <div style={{ width: '300px', border: '1px solid #ddd', padding: '1rem', height: '500px', overflowY: 'auto' }}>
-          <h3>Seat Management</h3>
-          <p>Total seats detected: {seats.length}</p>
-          <p>Selected: {selectedSeats.length}</p>
-          <p>Blocked: {blockedSeats.length}</p>
+        <div style={{ width: '380px', border: '1px solid #ddd', padding: '1.5rem', height: '600px', overflowY: 'auto', borderRadius: '8px', backgroundColor: '#fff' }}>
+          <h3>Control Panel</h3>
           
-          <hr />
-          <h4>All Seats:</h4>
+          <div style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+            <strong>Last Selected:</strong> {selectedSeats.length > 0 ? selectedSeats.map(id => seats.find(s => s.id === id)?.originalId).join(', ') : 'None'}
+          </div>
+
+          <div style={{ margin: '1rem 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <div style={{ padding: '0.5rem', background: '#f0f0f0', borderRadius: '4px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{seats.length}</div>
+              <div style={{ fontSize: '0.8rem' }}>Total Seats</div>
+            </div>
+            <div style={{ padding: '0.5rem', background: '#e6f7ff', borderRadius: '4px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{selectedSeats.length}</div>
+              <div style={{ fontSize: '0.8rem' }}>Selected</div>
+            </div>
+          </div>
+          
+          <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '1rem 0' }} />
+          
+          <h4>Seat List</h4>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {seats.map(seat => {
               const isSelected = selectedSeats.includes(seat.id);
@@ -132,17 +216,31 @@ function ReactSvgSeatmapExample() {
               }
               
               return (
-                <li key={seat.id} style={{ marginBottom: '8px', padding: '8px', border: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: rowBgColor }}>
-                  <span>{seat.originalId}</span>
-                  <div>
+                <li key={seat.id} style={{ marginBottom: '8px', padding: '8px', border: '1px solid #eee', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: rowBgColor }}>
+                  <span style={{ fontWeight: '500' }}>{seat.originalId}</span>
+                  <div style={{ display: 'flex', gap: '5px' }}>
                     <button 
-                      onClick={() => toggleBlockedStatus(seat.id)}
+                      onClick={(e) => { e.stopPropagation(); toggleSeatSelection(seat.id); }}
                       style={{ 
                         padding: '4px 8px', 
-                        fontSize: '0.8rem', 
+                        fontSize: '0.75rem', 
                         cursor: 'pointer',
-                        backgroundColor: isBlocked ? '#dc3545' : '#6c757d',
-                        color: 'white',
+                        backgroundColor: isSelected ? '#1890ff' : '#eee',
+                        color: isSelected ? 'white' : '#666',
+                        border: 'none',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {isSelected ? 'Deselect' : 'Select'}
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleBlockedStatus(seat.id); }}
+                      style={{ 
+                        padding: '4px 8px', 
+                        fontSize: '0.75rem', 
+                        cursor: 'pointer',
+                        backgroundColor: isBlocked ? '#f5222d' : '#eee',
+                        color: isBlocked ? 'white' : '#666',
                         border: 'none',
                         borderRadius: '4px'
                       }}
@@ -157,24 +255,42 @@ function ReactSvgSeatmapExample() {
         </div>
       </div>
       
-      {/* We need some styling for blocked/selected seats. */}
-      {/* react-svg-seatmap uses active class probably for selected. Let's see. */}
-      {seats.map(seat => {
-        if (blockedSeats.includes(seat.id)) {
-          return (
-            <style key={`style-${seat.id}`}>
-              {`
-                ${seat.cssSelector} {
-                  fill: #dc3545 !important;
-                  cursor: not-allowed !important;
-                  opacity: 0.5;
-                }
-              `}
-            </style>
-          );
-        }
-        return null;
-      })}
+      <style>
+        {`
+          .seat {
+            transition: all 0.2s ease;
+            cursor: pointer !important;
+          }
+          .seat:hover {
+            filter: brightness(0.8) contrast(1.2);
+            transform: scale(1.05);
+            z-index: 10;
+          }
+        `}
+        {seats.map(seat => {
+          if (blockedSeats.includes(seat.id)) {
+            return `
+              ${seat.cssSelector} {
+                fill: #f5222d !important;
+                stroke: #cf1322 !important;
+                cursor: not-allowed !important;
+                opacity: 0.5;
+              }
+            `;
+          }
+          if (selectedSeats.includes(seat.id)) {
+            return `
+              ${seat.cssSelector} {
+                fill: #1890ff !important;
+                stroke: #096dd9 !important;
+                opacity: 1 !important;
+                stroke-width: 2.5px !important;
+              }
+            `;
+          }
+          return null;
+        }).join('\n')}
+      </style>
     </div>
   );
 }
